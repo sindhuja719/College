@@ -65,7 +65,7 @@ pipeline {
 
         stage('Update Terraform Vars') {
             steps {
-                echo '📝 Updating Terraform variables with new image URL...'
+                echo 'Updating Terraform variables with new image URL...'
                 script {
                     def fullImageUrl = "${ECR_REPO_URL}:${IMAGE_TAG}"
                     writeFile file: "${TERRAFORM_DIR}/terraform.tfvars", text: """
