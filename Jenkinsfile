@@ -42,22 +42,26 @@ pipeline {
         }
 
         stage('Push to AWS ECR') {
-            steps {
-                echo '☁️ Pushing image to AWS ECR...'
-                withCredentials([[
-                    $class: 'UsernamePasswordMultiBinding',
-                    credentialsId: '545fe200-7f53-486a-810a-572b5f97b187',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-                    bat """
-                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}
-                        docker tag ${IMAGE_NAME}:latest ${ECR_REPO_URL}:${IMAGE_TAG}
-                        docker push ${ECR_REPO_URL}:${IMAGE_TAG}
-                    """
-                }
-            }
+    steps {
+        echo "☁️ Pushing image to AWS ECR..."
+
+        withCredentials([[$class: 'UsernamePasswordMultiBinding',
+            credentialsId: '545fe200-7f53-486a-810a-572b5f97b187',
+            usernameVariable: 'AWS_ACCESS_KEY_ID',
+            passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+
+            bat """
+                aws --version
+                aws ecr get-login-password --region us-east-1 ^
+                | docker login --username AWS --password-stdin 312596057535.dkr.ecr.us-east-1.amazonaws.com
+
+                docker tag college-website:latest 312596057535.dkr.ecr.us-east-1.amazonaws.com/college-website:v${BUILD_NUMBER}
+                docker push 312596057535.dkr.ecr.us-east-1.amazonaws.com/college-website:v${BUILD_NUMBER}
+            """
         }
+    }
+}
+
 
         stage('Update Terraform Vars') {
             steps {
