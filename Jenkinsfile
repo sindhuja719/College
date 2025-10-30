@@ -46,7 +46,7 @@ pipeline {
                 echo '☁️ Pushing image to AWS ECR...'
                 withCredentials([[
                     $class: 'UsernamePasswordMultiBinding',
-                    credentialsId: 'aws-creds',
+                    credentialsId: '545fe200-7f53-486a-810a-572b5f97b187',
                     usernameVariable: 'AWS_ACCESS_KEY_ID',
                     passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                 ]]) {
