@@ -88,23 +88,26 @@ security_group_id = "sg-0e8ecdc7ef4003311"
         }
 
         stage('Terraform Plan') {
-            steps {
-                dir("${env.TERRAFORM_DIR}") {
-                    echo '📝 Running Terraform plan...'
-                    bat 'terraform plan -out=tfplan -input=false'
-                }
-            }
-        }
-
-        stage('Terraform Apply') {
-            steps {
-                dir("${env.TERRAFORM_DIR}") {
-                    echo '🚀 Applying Terraform changes...'
-                    bat 'terraform apply -auto-approve tfplan'
-                }
-            }
+    withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        dir('terraform') {
+            echo "📝 Running Terraform plan..."
+            bat 'terraform plan -out=tfplan -input=false'
         }
     }
+}
+
+stage('Terraform Apply') {
+    when {
+        expression { currentBuild.result == null }
+    }
+    withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        dir('terraform') {
+            echo "🚀 Applying Terraform..."
+            bat 'terraform apply -auto-approve -input=false tfplan'
+        }
+    }
+}
+ }
 
     post {
         success {
