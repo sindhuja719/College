@@ -11,7 +11,6 @@ variable "aws_region" {
 variable "image_url" {
   description = "Full ECR image URL with tag"
   type        = string
-  example     = "312596057535.dkr.ecr.us-east-1.amazonaws.com/college-website"
 }
 
 variable "subnet_ids" {
