@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME        = 'college-website'
-        CONTAINER_NAME    = 'college-website'
-        PORT              = '8081'
-        AWS_REGION        = 'us-east-1'
-        ECR_REPO_URL      = '312596057535.dkr.ecr.us-east-1.amazonaws.com/college-website'
-        IMAGE_TAG         = "v${BUILD_NUMBER}"
-        TERRAFORM_DIR     = 'terraform'
+        IMAGE_NAME     = 'college-website'
+        CONTAINER_NAME = 'college-website'
+        PORT           = '8081'
+        AWS_REGION     = 'us-east-1'
+        ECR_REPO_URL   = '312596057535.dkr.ecr.us-east-1.amazonaws.com/college-website'
+        IMAGE_TAG      = "v${BUILD_NUMBER}"
+        TERRAFORM_DIR  = 'terraform'
     }
 
     stages {
@@ -42,30 +42,25 @@ pipeline {
         }
 
         stage('Push to AWS ECR') {
-    steps {
-        echo "☁️ Pushing image to AWS ECR..."
-
-        withCredentials([[$class: 'UsernamePasswordMultiBinding',
-            credentialsId: 'aws-creds',
-            usernameVariable: 'AWS_ACCESS_KEY_ID',
-            passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-
-            bat """
-                aws --version
-                aws ecr get-login-password --region us-east-1 ^
-                | docker login --username AWS --password-stdin 312596057535.dkr.ecr.us-east-1.amazonaws.com
-
-                docker tag college-website:latest 312596057535.dkr.ecr.us-east-1.amazonaws.com/college-website:v${BUILD_NUMBER}
-                docker push 312596057535.dkr.ecr.us-east-1.amazonaws.com/college-website:v${BUILD_NUMBER}
-            """
+            steps {
+                echo "☁️ Pushing image to AWS ECR..."
+                withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    bat """
+                        aws --version
+                        aws ecr get-login-password --region ${AWS_REGION} ^
+                        | docker login --username AWS --password-stdin ${ECR_REPO_URL}
+                        docker tag ${IMAGE_NAME}:latest ${ECR_REPO_URL}:${IMAGE_TAG}
+                        docker push ${ECR_REPO_URL}:${IMAGE_TAG}
+                    """
+                }
+            }
         }
-    }
-}
-
 
         stage('Update Terraform Vars') {
             steps {
-                echo 'Updating Terraform variables with new image URL...'
+                echo '📝 Updating Terraform variables with new image URL...'
                 script {
                     def fullImageUrl = "${ECR_REPO_URL}:${IMAGE_TAG}"
                     writeFile file: "${TERRAFORM_DIR}/terraform.tfvars", text: """
@@ -88,26 +83,34 @@ security_group_id = "sg-0e8ecdc7ef4003311"
         }
 
         stage('Terraform Plan') {
-    withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        dir('terraform') {
-            echo "📝 Running Terraform plan..."
-            bat 'terraform plan -out=tfplan -input=false'
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    dir("${env.TERRAFORM_DIR}") {
+                        echo "📝 Running Terraform plan..."
+                        bat 'terraform plan -out=tfplan -input=false'
+                    }
+                }
+            }
         }
-    }
-}
 
-stage('Terraform Apply') {
-    when {
-        expression { currentBuild.result == null }
-    }
-    withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        dir('terraform') {
-            echo "🚀 Applying Terraform..."
-            bat 'terraform apply -auto-approve -input=false tfplan'
+        stage('Terraform Apply') {
+            when {
+                expression { currentBuild.currentResult == 'SUCCESS' }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    dir("${env.TERRAFORM_DIR}") {
+                        echo "🚀 Applying Terraform..."
+                        bat 'terraform apply -auto-approve -input=false tfplan'
+                    }
+                }
+            }
         }
     }
-}
- }
 
     post {
         success {
